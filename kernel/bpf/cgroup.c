@@ -1116,8 +1116,8 @@ found:
 				lockdep_is_held(&cgroup_mutex));
 
 		/* Remove the program from the array */
-		WARN_ONCE(bpf_prog_array_delete_safe_at(progs, pos),
-			  "Failed to purge a prog from array at index %d", pos);
+		BPF_WARN_ONCE(bpf_prog_array_delete_safe_at(progs, pos),
+			      "Failed to purge a prog from array at index %d", pos);
 	}
 }
 

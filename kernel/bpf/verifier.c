@@ -1315,7 +1315,7 @@ static bool is_stack_slot_special(const struct bpf_stack_state *stack)
 	case STACK_ZERO:
 		return false;
 	default:
-		WARN_ONCE(1, "unknown stack slot type %d\n", type);
+		BPF_WARN_ONCE(1, "unknown stack slot type %d\n", type);
 		return true;
 	}
 }
@@ -18819,7 +18819,8 @@ static bool refsafe(struct bpf_verifier_state *old, struct bpf_verifier_state *c
 				return false;
 			break;
 		default:
-			WARN_ONCE(1, "Unhandled enum type for reference state: %d\n", old->refs[i].type);
+			BPF_WARN_ONCE(1, "Unhandled enum type for reference state: %d\n",
+				      old->refs[i].type);
 			return false;
 		}
 	}

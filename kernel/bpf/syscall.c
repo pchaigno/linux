@@ -3230,7 +3230,7 @@ static void bpf_link_show_fdinfo(struct seq_file *m, struct file *filp)
 	if (type < ARRAY_SIZE(bpf_link_type_strs) && bpf_link_type_strs[type]) {
 		seq_printf(m, "link_type:\t%s\n", bpf_link_type_strs[type]);
 	} else {
-		WARN_ONCE(1, "missing BPF_LINK_TYPE(...) for link type %u\n", type);
+		BPF_WARN_ONCE(1, "missing BPF_LINK_TYPE(...) for link type %u\n", type);
 		seq_printf(m, "link_type:\t<%u>\n", type);
 	}
 	seq_printf(m, "link_id:\t%u\n", link->id);

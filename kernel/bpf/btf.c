@@ -3982,7 +3982,7 @@ struct btf_record *btf_parse_fields(const struct btf *btf, const struct btf_type
 	for (i = 0; i < cnt; i++) {
 		field_type_size = btf_field_type_size(info_arr[i].type);
 		if (info_arr[i].off + field_type_size > value_size) {
-			WARN_ONCE(1, "verifier bug off %d size %d", info_arr[i].off, value_size);
+			BPF_WARN_ONCE(1, "verifier bug off %d size %d", info_arr[i].off, value_size);
 			ret = -EFAULT;
 			goto end;
 		}
@@ -7242,7 +7242,7 @@ int btf_struct_access(struct bpf_verifier_log *log,
 			/* It's either error or unknown return value..
 			 * scream and leave.
 			 */
-			if (WARN_ONCE(err > 0, "unknown btf_struct_walk return value"))
+			if (BPF_WARN_ONCE(err > 0, "unknown btf_struct_walk return value"))
 				return -EINVAL;
 			return err;
 		}

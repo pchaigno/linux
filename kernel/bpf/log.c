@@ -501,7 +501,7 @@ const char *dynptr_type_str(enum bpf_dynptr_type type)
 	case BPF_DYNPTR_TYPE_INVALID:
 		return "<invalid>";
 	default:
-		WARN_ONCE(1, "unknown dynptr type %d\n", type);
+		BPF_WARN_ONCE(1, "unknown dynptr type %d\n", type);
 		return "<unknown>";
 	}
 }
@@ -525,7 +525,7 @@ const char *iter_state_str(enum bpf_iter_state state)
 	case BPF_ITER_STATE_INVALID:
 		return "<invalid>";
 	default:
-		WARN_ONCE(1, "unknown iter state %d\n", state);
+		BPF_WARN_ONCE(1, "unknown iter state %d\n", state);
 		return "<unknown>";
 	}
 }
