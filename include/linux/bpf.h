@@ -348,8 +348,10 @@ static inline const char *btf_field_type_name(enum btf_field_type type)
 
 #if IS_ENABLED(CONFIG_DEBUG_KERNEL)
 #define BPF_WARN_ONCE(cond, format...) WARN_ONCE(cond, format)
+#define BPF_WARN_ON_ONCE(cond) WARN_ON_ONCE(cond)
 #else
 #define BPF_WARN_ONCE(cond, format...) BUILD_BUG_ON_INVALID(cond)
+#define BPF_WARN_ON_ONCE(cond) BUILD_BUG_ON_INVALID(cond)
 #endif
 
 static inline u32 btf_field_type_size(enum btf_field_type type)

@@ -549,7 +549,7 @@ int bpf_remove_insns(struct bpf_prog *prog, u32 off, u32 cnt)
 	prog->len -= cnt;
 
 	err = bpf_adj_branches(prog, off, off + cnt, off, false);
-	WARN_ON_ONCE(err);
+	BPF_WARN_ON_ONCE(err);
 	return err;
 }
 
@@ -2449,7 +2449,7 @@ static void bpf_prog_select_func(struct bpf_prog *fp)
 	 * check needed.
 	 */
 	if (!fp->jit_requested &&
-	    !WARN_ON_ONCE(idx >= ARRAY_SIZE(interpreters))) {
+	    !BPF_WARN_ON_ONCE(idx >= ARRAY_SIZE(interpreters))) {
 		fp->bpf_func = interpreters[idx];
 	} else {
 		fp->bpf_func = __bpf_prog_ret0_warn;

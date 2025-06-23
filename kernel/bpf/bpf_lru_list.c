@@ -4,6 +4,7 @@
 #include <linux/cpumask.h>
 #include <linux/spinlock.h>
 #include <linux/percpu.h>
+#include <linux/bpf.h>
 
 #include "bpf_lru_list.h"
 
@@ -510,8 +511,8 @@ static void bpf_common_lru_push_free(struct bpf_lru *lru,
 	u8 node_type = READ_ONCE(node->type);
 	unsigned long flags;
 
-	if (WARN_ON_ONCE(node_type == BPF_LRU_LIST_T_FREE) ||
-	    WARN_ON_ONCE(node_type == BPF_LRU_LOCAL_LIST_T_FREE))
+	if (BPF_WARN_ON_ONCE(node_type == BPF_LRU_LIST_T_FREE) ||
+	    BPF_WARN_ON_ONCE(node_type == BPF_LRU_LOCAL_LIST_T_FREE))
 		return;
 
 	if (node_type == BPF_LRU_LOCAL_LIST_T_PENDING) {

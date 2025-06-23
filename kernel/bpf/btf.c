@@ -2061,7 +2061,7 @@ const struct btf_type *btf_type_id_size(const struct btf *btf,
 	} else if (btf_type_is_ptr(size_type)) {
 		size = sizeof(void *);
 	} else {
-		if (WARN_ON_ONCE(!btf_type_is_modifier(size_type) &&
+		if (BPF_WARN_ON_ONCE(!btf_type_is_modifier(size_type) &&
 				 !btf_type_is_var(size_type)))
 			return NULL;
 
@@ -3250,8 +3250,8 @@ static int btf_struct_resolve(struct btf_verifier_env *env,
 
 		last_member = btf_type_member(v->t) + v->next_member - 1;
 		last_member_type_id = last_member->type;
-		if (WARN_ON_ONCE(!env_type_is_resolved(env,
-						       last_member_type_id)))
+		if (BPF_WARN_ON_ONCE(!env_type_is_resolved(env,
+							   last_member_type_id)))
 			return -EINVAL;
 
 		last_member_type = btf_type_by_id(env->btf,
@@ -3999,27 +3999,27 @@ struct btf_record *btf_parse_fields(const struct btf *btf, const struct btf_type
 
 		switch (info_arr[i].type) {
 		case BPF_SPIN_LOCK:
-			WARN_ON_ONCE(rec->spin_lock_off >= 0);
+			BPF_WARN_ON_ONCE(rec->spin_lock_off >= 0);
 			/* Cache offset for faster lookup at runtime */
 			rec->spin_lock_off = rec->fields[i].offset;
 			break;
 		case BPF_RES_SPIN_LOCK:
-			WARN_ON_ONCE(rec->spin_lock_off >= 0);
+			BPF_WARN_ON_ONCE(rec->spin_lock_off >= 0);
 			/* Cache offset for faster lookup at runtime */
 			rec->res_spin_lock_off = rec->fields[i].offset;
 			break;
 		case BPF_TIMER:
-			WARN_ON_ONCE(rec->timer_off >= 0);
+			BPF_WARN_ON_ONCE(rec->timer_off >= 0);
 			/* Cache offset for faster lookup at runtime */
 			rec->timer_off = rec->fields[i].offset;
 			break;
 		case BPF_WORKQUEUE:
-			WARN_ON_ONCE(rec->wq_off >= 0);
+			BPF_WARN_ON_ONCE(rec->wq_off >= 0);
 			/* Cache offset for faster lookup at runtime */
 			rec->wq_off = rec->fields[i].offset;
 			break;
 		case BPF_REFCOUNT:
-			WARN_ON_ONCE(rec->refcount_off >= 0);
+			BPF_WARN_ON_ONCE(rec->refcount_off >= 0);
 			/* Cache offset for faster lookup at runtime */
 			rec->refcount_off = rec->fields[i].offset;
 			break;
@@ -8544,7 +8544,7 @@ static int btf_populate_kfunc_set(struct btf *btf, enum btf_kfunc_hook hook,
 	/* Warn when register_btf_kfunc_id_set is called twice for the same hook
 	 * for module sets.
 	 */
-	if (WARN_ON_ONCE(set && !vmlinux_set)) {
+	if (BPF_WARN_ON_ONCE(set && !vmlinux_set)) {
 		ret = -EINVAL;
 		goto end;
 	}
@@ -8842,7 +8842,7 @@ int register_btf_id_dtor_kfuncs(const struct btf_id_dtor_kfunc *dtors, u32 add_c
 
 	tab = btf->dtor_kfunc_tab;
 	/* Only one call allowed for modules */
-	if (WARN_ON_ONCE(tab && btf_is_module(btf))) {
+	if (BPF_WARN_ON_ONCE(tab && btf_is_module(btf))) {
 		ret = -EINVAL;
 		goto end;
 	}

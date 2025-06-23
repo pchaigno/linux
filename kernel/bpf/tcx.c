@@ -233,7 +233,7 @@ static int tcx_link_update(struct bpf_link *link, struct bpf_prog *nprog,
 			       BPF_F_REPLACE | BPF_F_ID,
 			       link->prog->aux->id, 0);
 	if (!ret) {
-		WARN_ON_ONCE(entry != entry_new);
+		BPF_WARN_ON_ONCE(entry != entry_new);
 		oprog = xchg(&link->prog, nprog);
 		bpf_prog_put(oprog);
 		bpf_mprog_commit(entry);

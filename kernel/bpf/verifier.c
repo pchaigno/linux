@@ -849,7 +849,7 @@ static int unmark_stack_slots_dynptr(struct bpf_verifier_env *env, struct bpf_re
 	 */
 
 	/* Invalidate any slices associated with this dynptr */
-	WARN_ON_ONCE(release_reference(env, ref_obj_id));
+	BPF_WARN_ON_ONCE(release_reference(env, ref_obj_id));
 
 	/* Invalidate any dynptr clones */
 	for (i = 1; i < state->allocated_stack / BPF_REG_SIZE; i++) {
@@ -1082,7 +1082,7 @@ static int unmark_stack_slots_iter(struct bpf_verifier_env *env,
 		struct bpf_reg_state *st = &slot->spilled_ptr;
 
 		if (i == 0)
-			WARN_ON_ONCE(release_reference(env, st->ref_obj_id));
+			BPF_WARN_ON_ONCE(release_reference(env, st->ref_obj_id));
 
 		__mark_reg_not_init(env, st);
 
@@ -15416,12 +15416,12 @@ static int adjust_reg_min_max_vals(struct bpf_verifier_env *env,
 	}
 
 	/* Got here implies adding two SCALAR_VALUEs */
-	if (WARN_ON_ONCE(ptr_reg)) {
+	if (BPF_WARN_ON_ONCE(ptr_reg)) {
 		print_verifier_state(env, vstate, vstate->curframe, true);
 		verbose(env, "verifier internal error: unexpected ptr_reg\n");
 		return -EFAULT;
 	}
-	if (WARN_ON(!src_reg)) {
+	if (BPF_WARN_ON(!src_reg)) {
 		print_verifier_state(env, vstate, vstate->curframe, true);
 		verbose(env, "verifier internal error: no src_reg\n");
 		return -EFAULT;
@@ -16269,7 +16269,7 @@ static void mark_ptr_or_null_reg(struct bpf_func_state *state,
 				 bool is_null)
 {
 	if (type_may_be_null(reg->type) && reg->id == id &&
-	    (is_rcu_reg(reg) || !WARN_ON_ONCE(!reg->id))) {
+	    (is_rcu_reg(reg) || !BPF_WARN_ON_ONCE(!reg->id))) {
 		/* Old offset (both fixed and variable parts) should have been
 		 * known-zero, because we don't allow pointer arithmetic on
 		 * pointers that might be NULL. If we see this happening, don't
@@ -16279,10 +16279,10 @@ static void mark_ptr_or_null_reg(struct bpf_func_state *state,
 		 * advance offset for the returned pointer. In those cases, it
 		 * is fine to expect to see reg->off.
 		 */
-		if (WARN_ON_ONCE(reg->smin_value || reg->smax_value || !tnum_equals_const(reg->var_off, 0)))
+		if (BPF_WARN_ON_ONCE(reg->smin_value || reg->smax_value || !tnum_equals_const(reg->var_off, 0)))
 			return;
 		if (!(type_is_ptr_alloc_obj(reg->type) || type_is_non_owning_ref(reg->type)) &&
-		    WARN_ON_ONCE(reg->off))
+		    BPF_WARN_ON_ONCE(reg->off))
 			return;
 
 		if (is_null) {
@@ -16327,7 +16327,7 @@ static void mark_ptr_or_null_regs(struct bpf_verifier_state *vstate, u32 regno,
 		 * No one could have freed the reference state before
 		 * doing the NULL check.
 		 */
-		WARN_ON_ONCE(release_reference_nomark(vstate, id));
+		BPF_WARN_ON_ONCE(release_reference_nomark(vstate, id));
 
 	bpf_for_each_reg_in_vstate(vstate, state, reg, ({
 		mark_ptr_or_null_reg(state, reg, id, is_null);
@@ -16713,12 +16713,12 @@ static int check_cond_jmp_op(struct bpf_verifier_env *env,
 
 	if (BPF_SRC(insn->code) == BPF_X &&
 	    src_reg->type == SCALAR_VALUE && src_reg->id &&
-	    !WARN_ON_ONCE(src_reg->id != other_branch_regs[insn->src_reg].id)) {
+	    !BPF_WARN_ON_ONCE(src_reg->id != other_branch_regs[insn->src_reg].id)) {
 		sync_linked_regs(this_branch, src_reg, &linked_regs);
 		sync_linked_regs(other_branch, &other_branch_regs[insn->src_reg], &linked_regs);
 	}
 	if (dst_reg->type == SCALAR_VALUE && dst_reg->id &&
-	    !WARN_ON_ONCE(dst_reg->id != other_branch_regs[insn->dst_reg].id)) {
+	    !BPF_WARN_ON_ONCE(dst_reg->id != other_branch_regs[insn->dst_reg].id)) {
 		sync_linked_regs(this_branch, dst_reg, &linked_regs);
 		sync_linked_regs(other_branch, &other_branch_regs[insn->dst_reg], &linked_regs);
 	}
@@ -16870,7 +16870,7 @@ static int check_ld_imm(struct bpf_verifier_env *env, struct bpf_insn *insn)
 		}
 		dst_reg->type = PTR_TO_MAP_VALUE;
 		dst_reg->off = aux->map_off;
-		WARN_ON_ONCE(map->max_entries != 1);
+		BPF_WARN_ON_ONCE(map->max_entries != 1);
 		/* We want reg->id to be same (0) as map_value is not distinct */
 	} else if (insn->src_reg == BPF_PSEUDO_MAP_FD ||
 		   insn->src_reg == BPF_PSEUDO_MAP_IDX) {
@@ -20043,7 +20043,7 @@ static int do_check(struct bpf_verifier_env *env)
 			 * to document this in case nospec_result is used
 			 * elsewhere in the future.
 			 */
-			WARN_ON_ONCE(env->insn_idx != prev_insn_idx + 1);
+			BPF_WARN_ON_ONCE(env->insn_idx != prev_insn_idx + 1);
 process_bpf_exit:
 			mark_verifier_state_scratched(env);
 			err = update_branch_counts(env, env->cur_state);
@@ -21188,7 +21188,7 @@ static int convert_ctx_accesses(struct bpf_verifier_env *env)
 		u8 mode;
 
 		if (env->insn_aux_data[i + delta].nospec) {
-			WARN_ON_ONCE(env->insn_aux_data[i + delta].alu_state);
+			BPF_WARN_ON_ONCE(env->insn_aux_data[i + delta].alu_state);
 			struct bpf_insn patch[] = {
 				BPF_ST_NOSPEC(),
 				*insn,

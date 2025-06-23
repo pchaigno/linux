@@ -727,7 +727,7 @@ struct btf_record *btf_record_dup(const struct btf_record *rec)
 			break;
 		default:
 			ret = -EFAULT;
-			WARN_ON_ONCE(1);
+			BPF_WARN_ONCE(1, "unknown btf field type");
 			goto free;
 		}
 		new_rec->cnt++;
@@ -769,14 +769,14 @@ bool btf_record_equal(const struct btf_record *rec_a, const struct btf_record *r
 
 void bpf_obj_free_timer(const struct btf_record *rec, void *obj)
 {
-	if (WARN_ON_ONCE(!btf_record_has_field(rec, BPF_TIMER)))
+	if (BPF_WARN_ON_ONCE(!btf_record_has_field(rec, BPF_TIMER)))
 		return;
 	bpf_timer_cancel_and_free(obj + rec->timer_off);
 }
 
 void bpf_obj_free_workqueue(const struct btf_record *rec, void *obj)
 {
-	if (WARN_ON_ONCE(!btf_record_has_field(rec, BPF_WORKQUEUE)))
+	if (BPF_WARN_ON_ONCE(!btf_record_has_field(rec, BPF_WORKQUEUE)))
 		return;
 	bpf_wq_cancel_and_free(obj + rec->wq_off);
 }
@@ -829,12 +829,12 @@ void bpf_obj_free_fields(const struct btf_record *rec, void *obj)
 			unpin_uptr_kaddr(*(void **)field_ptr);
 			break;
 		case BPF_LIST_HEAD:
-			if (WARN_ON_ONCE(rec->spin_lock_off < 0))
+			if (BPF_WARN_ON_ONCE(rec->spin_lock_off < 0))
 				continue;
 			bpf_list_head_free(field, field_ptr, obj + rec->spin_lock_off);
 			break;
 		case BPF_RB_ROOT:
-			if (WARN_ON_ONCE(rec->spin_lock_off < 0))
+			if (BPF_WARN_ON_ONCE(rec->spin_lock_off < 0))
 				continue;
 			bpf_rb_root_free(field, field_ptr, obj + rec->spin_lock_off);
 			break;
@@ -2263,7 +2263,7 @@ static void bpf_audit_prog(const struct bpf_prog *prog, unsigned int op)
 	struct audit_context *ctx = NULL;
 	struct audit_buffer *ab;
 
-	if (WARN_ON_ONCE(op >= BPF_AUDIT_MAX))
+	if (BPF_WARN_ON_ONCE(op >= BPF_AUDIT_MAX))
 		return;
 	if (audit_enabled == AUDIT_OFF)
 		return;

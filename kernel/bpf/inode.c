@@ -43,7 +43,7 @@ static void *bpf_any_get(void *raw, enum bpf_type type)
 		bpf_link_inc(raw);
 		break;
 	default:
-		WARN_ON_ONCE(1);
+		BPF_WARN_ONCE(1, "unknown bpf type");
 		break;
 	}
 
@@ -63,7 +63,7 @@ static void bpf_any_put(void *raw, enum bpf_type type)
 		bpf_link_put(raw);
 		break;
 	default:
-		WARN_ON_ONCE(1);
+		BPF_WARN_ONCE(1, "unknown bpf type");
 		break;
 	}
 }

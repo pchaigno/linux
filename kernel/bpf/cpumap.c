@@ -124,7 +124,7 @@ static void __cpu_map_ring_cleanup(struct ptr_ring *ring)
 	void *ptr;
 
 	while ((ptr = ptr_ring_consume(ring))) {
-		WARN_ON_ONCE(1);
+		BPF_WARN_ON_ONCE(1);
 		if (unlikely(__ptr_test_bit(0, &ptr))) {
 			__ptr_clear_bit(0, &ptr);
 			kfree_skb(ptr);

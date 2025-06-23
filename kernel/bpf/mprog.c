@@ -318,8 +318,8 @@ static int bpf_mprog_fetch(struct bpf_mprog_entry *entry,
 	 */
 	if (link && !tuple->link)
 		return -EBUSY;
-	WARN_ON_ONCE(tuple->prog && tuple->prog != prog);
-	WARN_ON_ONCE(tuple->link && tuple->link != link);
+	BPF_WARN_ON_ONCE(tuple->prog && tuple->prog != prog);
+	BPF_WARN_ON_ONCE(tuple->link && tuple->link != link);
 	tuple->prog = prog;
 	tuple->link = link;
 	return 0;

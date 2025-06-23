@@ -192,8 +192,8 @@ void bpf_cgroup_atype_get(u32 attach_btf_id, int cgroup_atype)
 
 	lockdep_assert_held(&cgroup_mutex);
 
-	WARN_ON_ONCE(cgroup_lsm_atype[i].attach_btf_id &&
-		     cgroup_lsm_atype[i].attach_btf_id != attach_btf_id);
+	BPF_WARN_ON_ONCE(cgroup_lsm_atype[i].attach_btf_id &&
+			 cgroup_lsm_atype[i].attach_btf_id != attach_btf_id);
 
 	cgroup_lsm_atype[i].attach_btf_id = attach_btf_id;
 	cgroup_lsm_atype[i].refcnt++;
@@ -206,7 +206,7 @@ void bpf_cgroup_atype_put(int cgroup_atype)
 	cgroup_lock();
 	if (--cgroup_lsm_atype[i].refcnt <= 0)
 		cgroup_lsm_atype[i].attach_btf_id = 0;
-	WARN_ON_ONCE(cgroup_lsm_atype[i].refcnt < 0);
+	BPF_WARN_ON_ONCE(cgroup_lsm_atype[i].refcnt < 0);
 	cgroup_unlock();
 }
 #else

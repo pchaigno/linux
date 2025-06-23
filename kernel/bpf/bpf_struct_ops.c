@@ -926,7 +926,7 @@ static long bpf_struct_ops_map_delete_elem(struct bpf_map *map, void *key)
 	case BPF_STRUCT_OPS_STATE_INIT:
 		return -ENOENT;
 	default:
-		WARN_ON_ONCE(1);
+		BPF_WARN_ON_ONCE(1);
 		/* Should never happen.  Treat it as not found. */
 		return -ENOENT;
 	}
