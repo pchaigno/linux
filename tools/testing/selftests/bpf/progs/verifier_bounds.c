@@ -1532,4 +1532,54 @@ __naked void sub32_partial_overflow(void)
 	: __clobber_all);
 }
 
+SEC("socket")
+__description("test for s8")
+__success __log_level(2)
+__retval(0)
+__naked void test_s8(void)
+{
+	asm volatile("call %[bpf_get_prandom_u32];	\
+	r0 = (s8)r0;					\
+	if r0 s< 130 goto l0_%=;			\
+	r10 = 0;					\
+	r0 = 0;						\
+l0_%=:	exit;						\
+"		     :
+		     : __imm(bpf_get_prandom_u32)
+		     : __clobber_all);
+}
+
+SEC("socket")
+__description("test for invariant violation")
+__success __log_level(2) __flag(BPF_F_TEST_REG_INVARIANTS)
+__retval(0)
+__naked void test_invariants(void)
+{
+	asm volatile ("			\
+	call %[bpf_get_prandom_u32];	\
+	w2 = w0;			\
+	w3 = w0;			\
+	r0 = (s8)r2;			\
+	if r0 == 0x3481b51 goto l0_%=;	\
+	if r3 >= r0 goto l1_%=;		\
+	exit;				\
+l1_%=:	w6 = (s8)w2;			\
+	r7 = r6;			\
+	r3 += 524047;			\
+	r2 <<= 3;			\
+	if w6 >= 0xf000e60e goto l0_%=;	\
+	r5 = r0;			\
+	r5 += r6;			\
+	if r7 s> 0x2 goto l0_%=;	\
+	r7 += 4194380;			\
+	r5 -= r7;			\
+	r4 = r5;			\
+	r5 += -458749;			\
+	if r3 < r4 goto l0_%=;		\
+l0_%=:	exit;				\
+"	:
+	: __imm(bpf_get_prandom_u32)
+	: __clobber_all);
+}
+
 char _license[] SEC("license") = "GPL";
