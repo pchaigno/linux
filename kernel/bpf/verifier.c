@@ -5154,7 +5154,7 @@ static int check_stack_write_fixed_off(struct bpf_verifier_env *env,
 		struct bpf_reg_state *tmp_reg = &env->fake_reg[0];
 
 		memset(tmp_reg, 0, sizeof(*tmp_reg));
-		__mark_reg_known(tmp_reg, insn->imm);
+		__mark_reg_known(tmp_reg, (u32)insn->imm);
 		tmp_reg->type = SCALAR_VALUE;
 		save_register_state(env, state, spi, tmp_reg, size);
 	} else if (reg && is_spillable_regtype(reg->type)) {
