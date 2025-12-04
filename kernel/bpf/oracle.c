@@ -109,6 +109,33 @@ free_map:
 	return ERR_PTR(err);
 }
 
+static int populate_oracle_inner_map(struct list_head *head, struct bpf_map *inner_map)
+{
+	struct bpf_oracle_state_list *sl;
+	struct list_head *pos, *tmp;
+	int i = 0;
+
+	list_for_each_safe(pos, tmp, head) {
+		sl = container_of(pos, struct bpf_oracle_state_list, node);
+		inner_map->ops->map_update_elem(inner_map, &i, &sl->state, 0);
+		i++;
+	}
+
+	return 0;
+}
+
+static void free_oracle_states(struct list_head *oracle_states)
+{
+	struct bpf_oracle_state_list *sl;
+	struct list_head *pos, *tmp;
+
+	list_for_each_safe(pos, tmp, oracle_states) {
+		sl = container_of(pos, struct bpf_oracle_state_list, node);
+		kfree(sl);
+	}
+	kvfree(oracle_states);
+}
+
 struct bpf_prog *patch_oracle_check_insn(struct bpf_verifier_env *env, struct bpf_insn *insn,
 					 int i, int *cnt)
 {
@@ -127,8 +154,12 @@ struct bpf_prog *patch_oracle_check_insn(struct bpf_verifier_env *env, struct bp
 		goto noop;
 
 	num_oracle_states = list_count_nodes(head);
-	if (!num_oracle_states)
+	if (!num_oracle_states) {
+		verifier_bug(env, "no oracle states found at pruning point");
+		free_oracle_states(aux->oracle_states);
+		aux->oracle_states = NULL;
 		goto noop;
+	}
 
 	inner_map = create_inner_oracle_map(num_oracle_states);
 	if (IS_ERR(inner_map))
@@ -140,6 +171,10 @@ struct bpf_prog *patch_oracle_check_insn(struct bpf_verifier_env *env, struct bp
 	insn_buf[1] = ld_addrs[1];
 	insn_buf[2] = *insn;
 	*cnt = 3;
+
+	populate_oracle_inner_map(head, inner_map);
+	free_oracle_states(aux->oracle_states);
+	aux->oracle_states = NULL;
 
 	new_prog = bpf_patch_insn_data(env, i, insn_buf, *cnt);
 	if (!new_prog)
