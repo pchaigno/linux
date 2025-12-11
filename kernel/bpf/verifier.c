@@ -4795,7 +4795,7 @@ static int __mark_chain_precision(struct bpf_verifier_env *env,
 			 * (which are global func's input arguments)
 			 */
 			if (st->curframe == 0 &&
-			    st->frame[0]->subprogno > 0 &&
+			    (st->frame[0]->subprogno > 0 || env->prog->type == BPF_PROG_TYPE_EXT) &&
 			    st->frame[0]->callsite == BPF_MAIN_FUNC &&
 			    bt_stack_mask(bt) == 0 &&
 			    (bt_reg_mask(bt) & ~BPF_REGMASK_ARGS) == 0) {
@@ -4852,6 +4852,36 @@ static int __mark_chain_precision(struct bpf_verifier_env *env,
 				return -EFAULT;
 			}
 		}
+
+		if (!st->parent) {
+			/* we are at the entry into subprog, which
+			 * is expected for global funcs, but only if
+			 * requested precise registers are R1-R5
+			 * (which are global func's input arguments)
+			 */
+			if (st->curframe == 0 &&
+			    (st->frame[0]->subprogno > 0 || env->prog->type == BPF_PROG_TYPE_EXT) &&
+			    st->frame[0]->callsite == BPF_MAIN_FUNC &&
+			    bt_stack_mask(bt) == 0 &&
+			    (bt_reg_mask(bt) & ~BPF_REGMASK_ARGS) == 0) {
+				bitmap_from_u64(mask, bt_reg_mask(bt));
+				for_each_set_bit(i, mask, 32) {
+					reg = &st->frame[0]->regs[i];
+					bt_clear_reg(bt, i);
+					if (reg->type == SCALAR_VALUE) {
+						reg->precise = true;
+						*changed = true;
+					}
+				}
+				return 0;
+			}
+
+			verifier_bug(env, "backtracking subprog entry %d:%d:%d reg_mask %x stack_mask %llx",
+				     st->curframe, st->frame[0]->subprogno, st->frame[0]->callsite,
+				     bt_reg_mask(bt), bt_stack_mask(bt));
+			return -EFAULT;
+		}
+
 		st = st->parent;
 		if (!st)
 			break;
@@ -4917,8 +4947,10 @@ static int __mark_chain_precision(struct bpf_verifier_env *env,
 	 * fallback to marking all precise
 	 */
 	if (!bt_empty(bt)) {
+		verifier_bug(env, "bt not empty");
 		mark_all_scalars_precise(env, starting_state);
 		bt_reset(bt);
+		return -EPERM;
 	}
 
 	return 0;
