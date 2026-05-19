@@ -41,7 +41,7 @@ struct iplink_req {
 };
 
 static int create_netkit(int mode, int policy, int peer_policy, int *ifindex,
-			 int scrub, int peer_scrub, __u32 flags)
+			 int scrub, int peer_scrub, __u32 flags, int dev_switch)
 {
 	struct rtnl_handle rth = { .fd = -1 };
 	struct iplink_req req = {};
@@ -69,6 +69,7 @@ static int create_netkit(int mode, int policy, int peer_policy, int *ifindex,
 	addattr32(&req.n, sizeof(req), IFLA_NETKIT_SCRUB, scrub);
 	addattr32(&req.n, sizeof(req), IFLA_NETKIT_PEER_SCRUB, peer_scrub);
 	addattr32(&req.n, sizeof(req), IFLA_NETKIT_MODE, mode);
+	addattr32(&req.n, sizeof(req), IFLA_NETKIT_DEV_SWITCH, dev_switch);
 	if (flags & FLAG_ADJUST_ROOM) {
 		addattr16(&req.n, sizeof(req), IFLA_NETKIT_HEADROOM, NETKIT_HEADROOM);
 		addattr16(&req.n, sizeof(req), IFLA_NETKIT_TAILROOM, NETKIT_TAILROOM);
@@ -195,7 +196,8 @@ void serial_test_tc_netkit_basic(void)
 
 	err = create_netkit(NETKIT_L2, NETKIT_PASS, NETKIT_PASS,
 			    &ifindex, NETKIT_SCRUB_DEFAULT,
-			    NETKIT_SCRUB_DEFAULT, 0);
+			    NETKIT_SCRUB_DEFAULT, 0,
+			    NETKIT_DEV_SWITCH_BEFORE_PROG);
 	if (err)
 		return;
 
@@ -310,7 +312,8 @@ static void serial_test_tc_netkit_multi_links_target(int mode, int target)
 
 	err = create_netkit(mode, NETKIT_PASS, NETKIT_PASS,
 			    &ifindex, NETKIT_SCRUB_DEFAULT,
-			    NETKIT_SCRUB_DEFAULT, 0);
+			    NETKIT_SCRUB_DEFAULT, 0,
+			    NETKIT_DEV_SWITCH_BEFORE_PROG);
 	if (err)
 		return;
 
@@ -439,7 +442,8 @@ static void serial_test_tc_netkit_multi_opts_target(int mode, int target)
 
 	err = create_netkit(mode, NETKIT_PASS, NETKIT_PASS,
 			    &ifindex, NETKIT_SCRUB_DEFAULT,
-			    NETKIT_SCRUB_DEFAULT, 0);
+			    NETKIT_SCRUB_DEFAULT, 0,
+			    NETKIT_DEV_SWITCH_BEFORE_PROG);
 	if (err)
 		return;
 
@@ -554,7 +558,8 @@ void serial_test_tc_netkit_device(void)
 
 	err = create_netkit(NETKIT_L3, NETKIT_PASS, NETKIT_PASS,
 			    &ifindex, NETKIT_SCRUB_DEFAULT,
-			    NETKIT_SCRUB_DEFAULT, FLAG_SAME_NETNS);
+			    NETKIT_SCRUB_DEFAULT, FLAG_SAME_NETNS,
+			    NETKIT_DEV_SWITCH_BEFORE_PROG);
 	if (err)
 		return;
 
@@ -666,7 +671,8 @@ static void serial_test_tc_netkit_neigh_links_target(int mode, int target)
 
 	err = create_netkit(mode, NETKIT_PASS, NETKIT_PASS,
 			    &ifindex, NETKIT_SCRUB_DEFAULT,
-			    NETKIT_SCRUB_DEFAULT, 0);
+			    NETKIT_SCRUB_DEFAULT, 0,
+			    NETKIT_DEV_SWITCH_BEFORE_PROG);
 	if (err)
 		return;
 
@@ -744,7 +750,8 @@ static void serial_test_tc_netkit_pkt_type_mode(int mode)
 
 	err = create_netkit(mode, NETKIT_PASS, NETKIT_PASS,
 			    &ifindex, NETKIT_SCRUB_DEFAULT,
-			    NETKIT_SCRUB_DEFAULT, FLAG_SAME_NETNS);
+			    NETKIT_SCRUB_DEFAULT, FLAG_SAME_NETNS,
+			    NETKIT_DEV_SWITCH_BEFORE_PROG);
 	if (err)
 		return;
 
@@ -818,7 +825,8 @@ static void serial_test_tc_netkit_scrub_type(int scrub, bool room)
 
 	err = create_netkit(NETKIT_L2, NETKIT_PASS, NETKIT_PASS,
 			    &ifindex, scrub, scrub,
-			    room ? FLAG_ADJUST_ROOM : 0);
+			    room ? FLAG_ADJUST_ROOM : 0,
+			    NETKIT_DEV_SWITCH_BEFORE_PROG);
 	if (err)
 		return;
 
@@ -867,4 +875,65 @@ void serial_test_tc_netkit_scrub(void)
 {
 	serial_test_tc_netkit_scrub_type(NETKIT_SCRUB_DEFAULT, false);
 	serial_test_tc_netkit_scrub_type(NETKIT_SCRUB_NONE, true);
+}
+
+static void serial_test_tc_netkit_dev_switch_mode(int dev_switch)
+{
+	LIBBPF_OPTS(bpf_netkit_opts, optl);
+	struct test_tc_link *skel;
+	struct bpf_link *link;
+	int err, ifindex;
+
+	err = create_netkit(NETKIT_L2, NETKIT_PASS, NETKIT_PASS,
+			    &ifindex, NETKIT_SCRUB_DEFAULT,
+			    NETKIT_SCRUB_DEFAULT, 0, dev_switch);
+	if (err)
+		return;
+
+	skel = test_tc_link__open();
+	if (!ASSERT_OK_PTR(skel, "skel_open"))
+		goto cleanup;
+
+	ASSERT_EQ(bpf_program__set_expected_attach_type(skel->progs.tc9,
+		  BPF_NETKIT_PRIMARY), 0, "tc9_attach_type");
+
+	skel->rodata->ifindex = ifindex;
+
+	err = test_tc_link__load(skel);
+	if (!ASSERT_OK(err, "skel_load"))
+		goto cleanup;
+
+	assert_mprog_count_ifindex(ifindex, BPF_NETKIT_PRIMARY, 0);
+	assert_mprog_count_ifindex(ifindex, BPF_NETKIT_PEER, 0);
+
+	ASSERT_EQ(skel->bss->seen_tc91, false, "seen_tc91");
+	ASSERT_EQ(skel->bss->seen_tc92, false, "seen_tc92");
+
+	link = bpf_program__attach_netkit(skel->progs.tc9, ifindex, &optl);
+	if (!ASSERT_OK_PTR(link, "link_attach"))
+		goto cleanup;
+
+	skel->links.tc9 = link;
+
+	assert_mprog_count_ifindex(ifindex, BPF_NETKIT_PRIMARY, 1);
+	assert_mprog_count_ifindex(ifindex, BPF_NETKIT_PEER, 0);
+
+	tc_skel_reset_all_seen(skel);
+	ASSERT_EQ(send_icmp(), 0, "icmp_pkt");
+
+	ASSERT_EQ(skel->bss->seen_tc91, true, "seen_tc91");
+	ASSERT_EQ(skel->bss->seen_tc92, dev_switch == NETKIT_DEV_SWITCH_AFTER_PROG,
+		  "seen_tc92");
+cleanup:
+	test_tc_link__destroy(skel);
+
+	assert_mprog_count_ifindex(ifindex, BPF_NETKIT_PRIMARY, 0);
+	assert_mprog_count_ifindex(ifindex, BPF_NETKIT_PEER, 0);
+	destroy_netkit();
+}
+
+void serial_test_tc_netkit_dev_switch(void)
+{
+	serial_test_tc_netkit_dev_switch_mode(NETKIT_DEV_SWITCH_BEFORE_PROG);
+	serial_test_tc_netkit_dev_switch_mode(NETKIT_DEV_SWITCH_AFTER_PROG);
 }

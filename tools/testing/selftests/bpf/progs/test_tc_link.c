@@ -12,6 +12,8 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
+const volatile int ifindex;
+
 bool seen_tc1;
 bool seen_tc2;
 bool seen_tc3;
@@ -20,6 +22,8 @@ bool seen_tc5;
 bool seen_tc6;
 bool seen_tc7;
 bool seen_tc8;
+bool seen_tc91;
+bool seen_tc92;
 
 bool set_type;
 
@@ -126,4 +130,15 @@ int tc8(struct __sk_buff *skb)
 	headroom = BPF_CORE_READ(dev, needed_headroom);
 	tailroom = BPF_CORE_READ(dev, needed_tailroom);
 	return TCX_PASS;
+}
+
+SEC("tc/egress")
+int tc9(struct __sk_buff *skb)
+{
+	if (seen_tc91) {
+		seen_tc92 = true;
+		return TCX_PASS;
+	}
+	seen_tc91 = true;
+	return bpf_redirect(ifindex, 0);
 }
