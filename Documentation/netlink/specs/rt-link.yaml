@@ -833,6 +833,13 @@ definitions:
       - name: pair
       - name: single
   -
+    name: netkit-dev-switch
+    type: enum
+    enum-name: netkit-dev-switch
+    entries:
+      - name: before
+      - name: after
+  -
     name: ovpn-mode
     enum-name: ovpn-mode
     name-prefix: ovpn-mode
@@ -2322,6 +2329,10 @@ attribute-sets:
         name: pairing
         type: u32
         enum: netkit-pairing
+      -
+        name: dev-switch
+        type: u32
+        enum: netkit-dev-switch
   -
     name: linkinfo-ovpn-attrs
     name-prefix: ifla-ovpn-
