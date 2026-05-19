@@ -32,6 +32,7 @@ struct netkit {
 	enum netkit_action policy;
 	enum netkit_scrub scrub;
 	struct bpf_mprog_bundle	bundle;
+	enum netkit_dev_switch dev_switch;
 	__cacheline_group_end(netkit_fastpath);
 
 	__cacheline_group_begin(netkit_slowpath);
@@ -109,13 +110,16 @@ static netdev_tx_t netkit_xmit(struct sk_buff *skb, struct net_device *dev)
 	netkit_prep_forward(skb, !net_eq(dev_net(dev), dev_net(peer)),
 			    nk->scrub);
 	eth_skb_pkt_type(skb, peer);
-	skb->dev = peer;
+	if (nk->dev_switch == NETKIT_DEV_SWITCH_BEFORE_PROG)
+		skb->dev = peer;
 	entry = rcu_dereference(nk->active);
 	if (entry)
 		ret = netkit_run(entry, skb, ret);
 	switch (ret) {
 	case NETKIT_NEXT:
 	case NETKIT_PASS:
+		if (nk->dev_switch == NETKIT_DEV_SWITCH_AFTER_PROG)
+			skb->dev = peer;
 		eth_skb_pull_mac(skb);
 		skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
 		if (likely(__netif_rx(skb) == NET_RX_SUCCESS)) {
@@ -522,6 +526,8 @@ static int netkit_new_link(struct net_device *dev,
 			   struct rtnl_newlink_params *params,
 			   struct netlink_ext_ack *extack)
 {
+	bool seen_peer = false, seen_scrub = false, seen_dev_switch = false;
+	enum netkit_dev_switch dev_switch = NETKIT_DEV_SWITCH_BEFORE_PROG;
 	struct net *peer_net = rtnl_newlink_peer_net(params);
 	enum netkit_scrub scrub_prim = NETKIT_SCRUB_DEFAULT;
 	enum netkit_scrub scrub_peer = NETKIT_SCRUB_DEFAULT;
@@ -529,7 +535,6 @@ static int netkit_new_link(struct net_device *dev,
 	enum netkit_pairing pair = NETKIT_DEVICE_PAIR;
 	enum netkit_action policy_prim = NETKIT_PASS;
 	enum netkit_action policy_peer = NETKIT_PASS;
-	bool seen_peer = false, seen_scrub = false;
 	struct nlattr **data = params->data;
 	enum netkit_mode mode = NETKIT_L3;
 	unsigned char ifname_assign_type;
@@ -575,11 +580,14 @@ static int netkit_new_link(struct net_device *dev,
 			tailroom = nla_get_u16(data[IFLA_NETKIT_TAILROOM]);
 		if (data[IFLA_NETKIT_PAIRING])
 			pair = nla_get_u32(data[IFLA_NETKIT_PAIRING]);
+		if (data[IFLA_NETKIT_DEV_SWITCH])
+			dev_switch = nla_get_u32(data[IFLA_NETKIT_DEV_SWITCH]);
 
 		seen_scrub = data[IFLA_NETKIT_SCRUB];
 		seen_peer = data[IFLA_NETKIT_PEER_INFO] ||
 			    data[IFLA_NETKIT_PEER_SCRUB] ||
 			    data[IFLA_NETKIT_PEER_POLICY];
+		seen_dev_switch = data[IFLA_NETKIT_DEV_SWITCH];
 	}
 
 	if (ifmp && tbp[IFLA_IFNAME]) {
@@ -593,7 +601,7 @@ static int netkit_new_link(struct net_device *dev,
 	    (tb[IFLA_ADDRESS] || tbp[IFLA_ADDRESS]))
 		return -EOPNOTSUPP;
 	if (pair == NETKIT_DEVICE_SINGLE &&
-	    (tb != tbp || seen_peer || seen_scrub ||
+	    (tb != tbp || seen_peer || seen_scrub || seen_dev_switch ||
 	     policy_prim != NETKIT_PASS))
 		return -EOPNOTSUPP;
 
@@ -647,6 +655,7 @@ static int netkit_new_link(struct net_device *dev,
 
 	nk = netkit_priv(dev);
 	nk->primary = true;
+	nk->dev_switch = dev_switch;
 	nk->policy = policy_prim;
 	nk->scrub = scrub_prim;
 	nk->mode = mode;
@@ -1103,6 +1112,7 @@ static int netkit_change_link(struct net_device *dev, struct nlattr *tb[],
 		{ IFLA_NETKIT_HEADROOM,   "headroom" },
 		{ IFLA_NETKIT_TAILROOM,   "tailroom" },
 		{ IFLA_NETKIT_PAIRING,    "pairing" },
+		{ IFLA_NETKIT_DEV_SWITCH, "dev switch policy" },
 	};
 
 	if (!nk->primary) {
@@ -1202,6 +1212,7 @@ static size_t netkit_get_size(const struct net_device *dev)
 	       nla_total_size(sizeof(u16)) + /* IFLA_NETKIT_HEADROOM */
 	       nla_total_size(sizeof(u16)) + /* IFLA_NETKIT_TAILROOM */
 	       nla_total_size(sizeof(u32)) + /* IFLA_NETKIT_PAIRING */
+	       nla_total_size(sizeof(u32)) + /* IFLA_NETKIT_DEV_SWITCH */
 	       0;
 }
 
@@ -1225,6 +1236,8 @@ static int netkit_fill_info(struct sk_buff *skb, const struct net_device *dev)
 		return -EMSGSIZE;
 	if (nla_put_u32(skb, IFLA_NETKIT_PAIRING, nk->pair))
 		return -EMSGSIZE;
+	if (nla_put_u32(skb, IFLA_NETKIT_DEV_SWITCH, nk->dev_switch))
+		return -EMSGSIZE;
 
 	if (peer) {
 		nk = netkit_priv(peer);
@@ -1247,6 +1260,7 @@ static const struct nla_policy netkit_policy[IFLA_NETKIT_MAX + 1] = {
 	[IFLA_NETKIT_SCRUB]		= NLA_POLICY_MAX(NLA_U32, NETKIT_SCRUB_DEFAULT),
 	[IFLA_NETKIT_PEER_SCRUB]	= NLA_POLICY_MAX(NLA_U32, NETKIT_SCRUB_DEFAULT),
 	[IFLA_NETKIT_PAIRING]		= NLA_POLICY_MAX(NLA_U32, NETKIT_DEVICE_SINGLE),
+	[IFLA_NETKIT_DEV_SWITCH]	= NLA_POLICY_MAX(NLA_U32, NETKIT_DEV_SWITCH_AFTER_PROG),
 	[IFLA_NETKIT_PRIMARY]		= { .type = NLA_REJECT,
 					    .reject_message = "Primary attribute is read-only" },
 };
