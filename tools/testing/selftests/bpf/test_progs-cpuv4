@@ -1,0 +1,3 @@
+#!/bin/bash
+
+echo "Fake cpuv4 variant because the BPF CI expects it but v6.6 doesn't have it."
